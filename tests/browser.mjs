@@ -66,6 +66,83 @@ try {
     assert.deepEqual(errors, []);
     await page.screenshot({ path: 'test-results/menu-desktop.png' });
   });
+  await check('Новое название; музыка до жеста не играет, ресурсы готовы', async () => {
+    assert.equal(await page.title(), 'Мелстрой мерж');
+    assert.ok((await page.locator('.brand-title').innerText()).includes('Мелстрой'));
+    const state = (await snapshot()).audio;
+    assert.equal(state.unlocked, false);
+    assert.equal(state.musicPaused, true);
+    assert.equal(state.musicTime, 0);
+    assert.equal(state.players.length, 3);
+    await wait(() => window.__MEME_TEST__.snapshot().audio.players.every((player) => player.readyState >= 1));
+  });
+  await check('Музыка включается после жеста, зациклена и отключается независимо от звуков', async () => {
+    await page.getByRole('button', { name: 'Музыка', exact: true }).click();
+    assert.equal((await snapshot()).audio.musicPaused, true);
+    assert.equal((await snapshot()).audio.musicTime, 0);
+    assert.equal((await snapshot()).audio.effects, true);
+    await page.getByRole('button', { name: 'Музыка', exact: true }).click();
+    await wait(() => !window.__MEME_TEST__.snapshot().audio.musicPaused && window.__MEME_TEST__.snapshot().audio.musicTime > 0.1);
+    const state = (await snapshot()).audio;
+    assert.equal(state.musicLoop, true);
+    assert.equal(state.musicVolume, 0.22);
+    assert.ok(state.players[0].src.endsWith('/assets/audio/video-audio-02.mp3'));
+    assert.equal(state.players.filter((player) => !player.paused).length, 1);
+  });
+  await check('Настройки звука сохраняются после reload; рекорды не изменяются', async () => {
+    const before = (await snapshot()).saves;
+    await page.getByRole('button', { name: 'Музыка', exact: true }).click();
+    await page.getByRole('button', { name: 'Звуки', exact: true }).click();
+    assert.deepEqual(await page.evaluate(() => JSON.parse(localStorage.getItem('meme-merge.audio.v1'))), { music: false, effects: false });
+    await page.reload();
+    await wait(() => !!window.__MEME_TEST__ && !!document.querySelector('[data-action="play"]'));
+    assert.deepEqual((await snapshot()).saves, before);
+    assert.equal((await snapshot()).audio.music, false);
+    assert.equal((await snapshot()).audio.effects, false);
+    assert.equal(await page.getByRole('button', { name: 'Музыка', exact: true }).getAttribute('aria-pressed'), 'false');
+    assert.equal((await snapshot()).audio.musicPaused, true);
+    await page.getByRole('button', { name: 'Музыка', exact: true }).click();
+    await page.getByRole('button', { name: 'Звуки', exact: true }).click();
+    await wait(() => !window.__MEME_TEST__.snapshot().audio.musicPaused);
+  });
+  await check('Длинные клипы доступны явно; второй не накладывается, выключение останавливает первый', async () => {
+    assert.equal(await page.evaluate(() => window.__MEME_TEST__.playEffect('effect01')), true);
+    assert.equal((await snapshot()).audio.activeEffect, 'effect01');
+    assert.equal((await snapshot()).audio.musicPaused, true);
+    assert.equal(await page.evaluate(() => window.__MEME_TEST__.playEffect('effect03')), false);
+    assert.equal((await snapshot()).audio.players.filter((player) => !player.paused).length, 1);
+    await page.getByRole('button', { name: 'Звуки', exact: true }).click();
+    assert.equal((await snapshot()).audio.activeEffect, null);
+    assert.equal(await page.evaluate(() => window.__MEME_TEST__.playEffect('effect03')), false);
+    await page.getByRole('button', { name: 'Звуки', exact: true }).click();
+    assert.equal(await page.evaluate(() => window.__MEME_TEST__.playEffect('effect03')), true);
+    await page.getByRole('button', { name: 'Звуки', exact: true }).click();
+    await page.getByRole('button', { name: 'Звуки', exact: true }).click();
+    await wait(() => !window.__MEME_TEST__.snapshot().audio.musicPaused);
+  });
+  await check('Скрытая вкладка, фокус и будущая рекламная пауза приостанавливают аудио', async () => {
+    await page.evaluate(() => {
+      Object.defineProperty(document, 'hidden', { configurable: true, get: () => true });
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+    assert.equal((await snapshot()).audio.musicPaused, true);
+    await page.evaluate(() => {
+      delete document.hidden;
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+    await wait(() => !window.__MEME_TEST__.snapshot().audio.musicPaused);
+    await page.evaluate(() => window.dispatchEvent(new Event('blur')));
+    assert.equal((await snapshot()).audio.musicPaused, true);
+    await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+    await wait(() => !window.__MEME_TEST__.snapshot().audio.musicPaused);
+    await page.evaluate(() => window.__MEME_TEST__.audioSuspend('ad', true));
+    assert.equal((await snapshot()).audio.musicPaused, true);
+    await page.getByRole('button', { name: 'Музыка', exact: true }).click();
+    await page.getByRole('button', { name: 'Музыка', exact: true }).click();
+    assert.equal((await snapshot()).audio.musicPaused, true);
+    await page.evaluate(() => window.__MEME_TEST__.audioSuspend('ad', false));
+    await wait(() => !window.__MEME_TEST__.snapshot().audio.musicPaused);
+  });
   await check('Все фото из архива загружены как прозрачные PNG без зелёного фона', async () => {
     const expected = [1, 2, 3, 4, 5, 7, 8, 9, 10, 11];
     const sourceLevels = (await snapshot()).sourceLevels;
@@ -216,6 +293,22 @@ try {
     await legacy.close();
   });
   await start();
+  await check('Все 10 игровых диаметров и коллайдеров увеличены ровно на 12%', async () => {
+    const levels = [1, 2, 3, 4, 5, 7, 8, 9, 10, 11];
+    const original = [30, 38, 47, 57, 69, 96, 112, 130, 150, 172];
+    const state = await page.evaluate((ids) => {
+      window.__MEME_TEST__.fixture(ids.map((level) => ({ level, x: 195, y: 500, static: true })));
+      const state = window.__MEME_TEST__.snapshot();
+      window.__MEME_TEST__.fixture([]);
+      return state;
+    }, levels);
+    for (const [index, ball] of state.balls.entries()) {
+      assert.equal(ball.level, levels[index]);
+      assert.ok(Math.abs(ball.radius * 2 - original[index] * 1.12) < 1e-9);
+      assert.equal(ball.colliderRadius, ball.radius);
+      assert.equal(ball.visualDiameter, ball.radius * 2);
+    }
+  });
   await check('Прицел плавно следует за мышью, затем сходится к точной позиции', async () => {
     const before = await snapshot();
     const from = before.previewX;
@@ -239,7 +332,9 @@ try {
     const ball = (await snapshot()).balls[0];
     assert.equal(ball.level, currentLevel);
     assert.ok(Math.abs(ball.x - 100) < 1);
-    assert.equal(ball.radius, [15, 19, 23.5, 28.5, 34.5][currentLevel - 1]);
+    assert.ok(Math.abs(ball.radius - [15, 19, 23.5, 28.5, 34.5][currentLevel - 1] * 1.12) < 1e-9);
+    assert.equal(ball.visualDiameter, ball.radius * 2);
+    assert.equal(ball.colliderRadius, ball.radius);
     await wait(() => window.__MEME_TEST__.snapshot().balls[0].y > 670, null, 4000);
     const settled = (await snapshot()).balls[0];
     assert.ok(settled.y + settled.radius <= 720);
@@ -252,7 +347,10 @@ try {
     assert.equal(after.paused, true);
     assert.equal(after.gameTime, before.gameTime);
     assert.deepEqual(after.balls, before.balls);
+    assert.equal(after.audio.musicPaused, true);
+    assert.equal(after.audio.musicTime, before.audio.musicTime);
     await page.getByRole('button', { name: 'Продолжить', exact: true }).click();
+    await wait(() => !window.__MEME_TEST__.snapshot().audio.musicPaused);
     assert.equal((await snapshot()).balls.length, 1);
   });
   await check('Потеря фокуса автоматически ставит игру на паузу', async () => {
@@ -312,7 +410,7 @@ try {
     const state = await snapshot();
     assert.equal(state.balls.length, 1);
     assert.equal(state.balls[0].level, 7);
-    assert.equal(state.balls[0].radius, 48);
+    assert.equal(state.balls[0].radius, 53.76);
     assert.equal(state.balls[0].texture, 'meme-circle-7');
     assert.equal(state.removedTextureExists, false);
     await page.waitForTimeout(250);
@@ -344,7 +442,7 @@ try {
       assert.equal(state.balls.length, 1);
       assert.equal(state.balls[0].level, target);
       assert.equal(state.balls[0].texture, `meme-circle-${target}`);
-      assert.equal(state.balls[0].radius * 2, diameter);
+      assert.ok(Math.abs(state.balls[0].radius * 2 - diameter * 1.12) < 1e-9);
       assert.equal(state.removedTextureExists, false);
       assert.equal(state.bodies, 4);
     }
@@ -430,12 +528,16 @@ try {
     await wait(() => window.__MEME_TEST__.snapshot().balls.length === 0 && !window.__MEME_TEST__.snapshot().ended);
   });
   await check('10 рестартов не накапливают тела и обработчики', async () => {
+    const musicTime = (await snapshot()).audio.musicTime;
     for (let i = 0; i < 10; i++) {
       await restart();
       const state = await snapshot();
       assert.equal(state.bodies, 3);
       assert.equal(state.listeners, 1);
       assert.equal(state.score, 0);
+      assert.equal(state.audio.players.length, 3);
+      assert.equal(state.audio.activeEffect, null);
+      assert.ok(state.audio.musicTime >= musicTime);
     }
   });
   await check('Адаптивность: телефон, планшет, компьютер, горизонтальный экран', async () => {
@@ -451,6 +553,16 @@ try {
       assert.ok(geometry.width <= viewport.width && geometry.height <= viewport.height);
       assert.ok(Math.abs(geometry.canvasWidth - geometry.width) < 2);
       assert.equal(geometry.scrollWidth, viewport.width);
+      assert.equal(await page.locator('.side-left').isVisible(), viewport.width > 1090);
+      assert.equal(await page.locator('.side-right').isVisible(), viewport.width > 1090);
+      if (viewport.width > 1090) {
+        const stage = await page.locator('#stage').boundingBox();
+        const left = await page.locator('.side-left').boundingBox();
+        const right = await page.locator('.side-right').boundingBox();
+        assert.ok(left.x + left.width < stage.x);
+        assert.ok(right.x > stage.x + stage.width);
+        assert.equal(await page.locator('.side-left').evaluate((element) => getComputedStyle(element).pointerEvents), 'none');
+      }
       for (const button of await page.locator('.game-screen button').all()) {
         const box = await button.boundingBox();
         assert.ok(box.height >= 43.5, `Маленькая область нажатия: ${box.height}`);
@@ -482,6 +594,123 @@ try {
     await mobilePage.screenshot({ path: 'test-results/touch-mobile.png' });
     await mobile.close();
   });
+  const touchContext = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+  const touchPage = await touchContext.newPage();
+  touchPage.on('pageerror', (error) => errors.push(String(error)));
+  await touchPage.goto(url);
+  await touchPage.getByRole('button', { name: 'Играть', exact: true }).click();
+  await touchPage.waitForFunction(() => !!window.__MEME_TEST__ && window.__MEME_TEST__.gameActive());
+  const touchClient = await touchContext.newCDPSession(touchPage);
+  const touch = (type, touchPoints = []) => touchClient.send('Input.dispatchTouchEvent', { type, touchPoints });
+  const touchState = () => touchPage.evaluate(() => window.__MEME_TEST__.snapshot());
+  const touchPoint = async (x, y, id) => {
+    const rect = await touchPage.locator('#stage').boundingBox();
+    return { x: rect.x + x * rect.width / 390, y: rect.y + y * rect.height / 844, id };
+  };
+  const resetTouch = async () => {
+    await touchPage.getByRole('button', { name: 'Начать заново', exact: true }).click();
+    await touchPage.getByRole('dialog').getByRole('button', { name: 'Начать заново', exact: true }).click();
+    await touchPage.waitForFunction(() => !window.__MEME_TEST__.snapshot().paused && window.__MEME_TEST__.snapshot().balls.length === 0);
+  };
+  try {
+    await check('Телефон: захват пальца, движение вне поля и один сброс у стенки', async () => {
+      await touch('touchStart', [await touchPoint(100, 450, 11)]);
+      await touch('touchMove', [await touchPoint(385, 140, 11)]);
+      assert.equal((await touchState()).balls.length, 0);
+      assert.equal(await touchPage.evaluate(() => document.querySelector('canvas').hasPointerCapture(window.__MEME_TEST__.snapshot().activePointer)), true);
+      await touchPage.waitForFunction(() => window.__MEME_TEST__.snapshot().previewX > 320);
+      await touch('touchEnd');
+      await touchPage.waitForFunction(() => window.__MEME_TEST__.snapshot().balls.length === 1);
+      const state = await touchState();
+      assert.equal(state.activePointer, null);
+      assert.equal(state.paused, false);
+      assert.ok(Math.abs(state.balls[0].x - (362 - state.balls[0].radius - 1)) < 1);
+    });
+    await check('Масштабированный экран: палец вне canvas следует за движением и сбрасывает мем', async () => {
+      await resetTouch();
+      await touchPage.setViewportSize({ width: 768, height: 1024 });
+      await touchPage.waitForTimeout(100);
+      await touch('touchStart', [await touchPoint(100, 450, 12)]);
+      await touch('touchMove', [{ x: 8, y: 100, id: 12 }]);
+      await touchPage.waitForFunction(() => window.__MEME_TEST__.snapshot().previewX < 70);
+      await touch('touchMove', [{ x: 760, y: 100, id: 12 }]);
+      await touchPage.waitForFunction(() => window.__MEME_TEST__.snapshot().previewX > 320);
+      assert.equal((await touchState()).balls.length, 0);
+      await touch('touchEnd');
+      await touchPage.waitForFunction(() => window.__MEME_TEST__.snapshot().balls.length === 1);
+      const ball = (await touchState()).balls[0];
+      assert.ok(Math.abs(ball.x - (362 - ball.radius - 1)) < 1);
+      assert.equal(await touchPage.evaluate(() => document.documentElement.scrollWidth), 768);
+      assert.equal(await touchPage.evaluate(() => window.scrollY), 0);
+    });
+    await check('Отмена указателя не сбрасывает мем и не блокирует следующее касание', async () => {
+      await resetTouch();
+      await touch('touchStart', [await touchPoint(100, 450, 13)]);
+      await touch('touchMove', [{ x: 8, y: 100, id: 13 }]);
+      await touch('touchCancel');
+      assert.equal((await touchState()).activePointer, null);
+      assert.equal((await touchState()).balls.length, 0);
+      await touch('touchStart', [await touchPoint(140, 450, 14)]);
+      await touch('touchEnd');
+      await touchPage.waitForFunction(() => window.__MEME_TEST__.snapshot().balls.length === 1);
+    });
+    await check('Потеря захвата отменяет жест без случайного сброса и зависания', async () => {
+      await resetTouch();
+      await touch('touchStart', [await touchPoint(100, 450, 15)]);
+      await touch('touchMove', [await touchPoint(110, 450, 15)]);
+      await touchPage.evaluate(() => document.querySelector('canvas').releasePointerCapture(window.__MEME_TEST__.snapshot().activePointer));
+      await touch('touchMove', [await touchPoint(120, 450, 15)]);
+      await touchPage.waitForFunction(() => window.__MEME_TEST__.snapshot().activePointer === null);
+      await touch('touchEnd');
+      assert.equal((await touchState()).balls.length, 0);
+      await touch('touchStart', [await touchPoint(150, 450, 16)]);
+      await touch('touchEnd');
+      await touchPage.waitForFunction(() => window.__MEME_TEST__.snapshot().balls.length === 1);
+    });
+    await check('Второй палец не меняет прицел и не создаёт повторный сброс', async () => {
+      await resetTouch();
+      const first = await touchPoint(110, 450, 21);
+      const second = await touchPoint(300, 450, 22);
+      await touch('touchStart', [first]);
+      await touch('touchStart', [first, second]);
+      const moved = await touchPoint(150, 450, 21);
+      await touch('touchMove', [moved, second]);
+      // CDP touchEnd lists the contacts being released, not the contacts remaining.
+      await touch('touchEnd', [moved]);
+      await touchPage.waitForFunction(() => window.__MEME_TEST__.snapshot().balls.length === 1);
+      assert.ok(Math.abs((await touchState()).balls[0].x - 150) < 1);
+      await touch('touchEnd');
+      await touchPage.waitForTimeout(500);
+      assert.equal((await touchState()).balls.length, 1);
+    });
+    await check('Касания кнопок и отпускание над кнопкой после жеста не вызывают лишних действий', async () => {
+      await resetTouch();
+      const pause = await touchPage.getByRole('button', { name: 'Пауза', exact: true }).boundingBox();
+      await touchPage.touchscreen.tap(pause.x + pause.width / 2, pause.y + pause.height / 2);
+      assert.equal((await touchState()).paused, true);
+      await touchPage.getByRole('button', { name: 'Продолжить', exact: true }).click();
+      assert.equal((await touchState()).balls.length, 0);
+      await touch('touchStart', [await touchPoint(100, 450, 23)]);
+      await touch('touchMove', [{ x: pause.x + pause.width / 2, y: pause.y + pause.height / 2, id: 23 }]);
+      await touch('touchEnd');
+      await touchPage.waitForFunction(() => window.__MEME_TEST__.snapshot().balls.length === 1);
+      assert.equal((await touchState()).paused, false);
+    });
+    await check('Пауза во время касания отменяет жест; после продолжения управление работает', async () => {
+      await resetTouch();
+      await touch('touchStart', [await touchPoint(100, 450, 24)]);
+      await touchPage.evaluate(() => window.dispatchEvent(new Event('blur')));
+      assert.equal((await touchState()).activePointer, null);
+      await touch('touchEnd');
+      assert.equal((await touchState()).balls.length, 0);
+      await touchPage.evaluate(() => window.dispatchEvent(new Event('focus')));
+      await touchPage.getByRole('button', { name: 'Продолжить', exact: true }).click();
+      await touch('touchStart', [await touchPoint(140, 450, 25)]);
+      await touch('touchEnd');
+      await touchPage.waitForFunction(() => window.__MEME_TEST__.snapshot().balls.length === 1);
+      await touchPage.screenshot({ path: 'test-results/touch-outside.png' });
+    });
+  } finally { await touchContext.close(); }
   await check('Недоступный localStorage не препятствует игре', async () => {
     const restricted = await browser.newContext({ viewport: { width: 390, height: 844 } });
     await restricted.addInitScript(() => {

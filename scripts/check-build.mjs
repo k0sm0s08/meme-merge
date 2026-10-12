@@ -19,11 +19,16 @@ for (const [, reference] of html.matchAll(/(?:src|href)="([^"]+)"/g)) {
   assert.ok((await stat(path)).isFile(), `Ресурс отсутствует: ${reference}`);
 }
 const levels = [1, 2, 3, 4, 5, 7, 8, 9, 10, 11];
-for (const level of levels) {
-  const relative = `assets/memes/meme-${String(level).padStart(2, '0')}.png`;
+const assets = [
+  ...levels.map((level) => `assets/memes/meme-${String(level).padStart(2, '0')}.png`),
+  'assets/backgrounds/left-overlay.webp', 'assets/backgrounds/right-overlay.webp',
+  ...['01', '02', '03'].map((id) => `assets/audio/video-audio-${id}.mp3`),
+];
+for (const relative of assets) {
   const source = await readFile(resolve('public', relative));
   const built = await readFile(resolve(root, relative));
   const hash = (buffer) => createHash('sha256').update(buffer).digest('hex');
-  assert.equal(hash(built), hash(source), `Изображение повреждено или не соответствует исходнику: ${relative}`);
+  assert.equal(hash(built), hash(source), `Ресурс повреждён или не соответствует исходнику: ${relative}`);
 }
-console.log(`✓ dist/index.html, base ${base}, все JS/CSS/иконки и 10 изображений мемов проверены.`);
+assert.ok(html.includes('Мелстрой мерж'), 'Название игры должно быть обновлено');
+console.log(`✓ dist/index.html, base ${base}, JS/CSS/иконки, 10 мемов, 2 фотографии и 3 MP3 проверены.`);

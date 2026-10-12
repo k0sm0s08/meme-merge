@@ -8,7 +8,7 @@ const root = resolve('dist');
 await stat(resolve(root, 'index.html'));
 const configuredBase = process.env.VITE_BASE_PATH ?? '/meme-merge/';
 const prefix = configuredBase.startsWith('/') ? configuredBase : '/release/meme-merge/';
-const mime = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.png': 'image/png', '.svg': 'image/svg+xml' };
+const mime = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.png': 'image/png', '.svg': 'image/svg+xml', '.webp': 'image/webp', '.mp3': 'audio/mpeg' };
 const server = createServer(async (req, res) => {
   try {
     const pathname = decodeURIComponent(new URL(req.url, 'http://localhost').pathname);
@@ -26,6 +26,7 @@ const origin = `http://127.0.0.1:${port}`;
 const errors = [];
 const external = [];
 const loadedMemes = new Set();
+const loadedExtras = new Set();
 let browser;
 const executedAt = new Date().toISOString();
 await mkdir('test-results', { recursive: true });
@@ -39,6 +40,7 @@ try {
     if (response.status() >= 400) errors.push(`${response.status()} ${response.url()}`);
     const path = new URL(response.url()).pathname;
     if (response.status() === 200 && path.startsWith(prefix + 'assets/memes/')) loadedMemes.add(path);
+    if (response.status() === 200 && (path.startsWith(prefix + 'assets/backgrounds/') || path.startsWith(prefix + 'assets/audio/'))) loadedExtras.add(path);
   });
   page.on('request', (req) => {
     const destination = new URL(req.url());
@@ -47,6 +49,8 @@ try {
   });
   await page.goto(origin + prefix);
   await page.getByRole('button', { name: 'Играть', exact: true }).waitFor();
+  assert.equal(await page.title(), 'Мелстрой мерж');
+  assert.equal(await page.locator('.side-left').isVisible(), false);
   assert.equal(await page.evaluate(() => '__MEME_TEST__' in window), false);
   assert.equal(await page.locator('#loading').count(), 0);
   assert.deepEqual([...loadedMemes].sort(), [1, 2, 3, 4, 5, 7, 8, 9, 10, 11].map((level) => `${prefix}assets/memes/meme-${String(level).padStart(2, '0')}.png`));
@@ -68,11 +72,18 @@ try {
   await page.waitForTimeout(150);
   const stage = await page.locator('#stage').boundingBox();
   assert.ok(stage.width < 1440 && Math.abs(stage.x + stage.width / 2 - 720) < 2);
+  assert.equal(await page.locator('.side-left').isVisible(), true);
+  assert.equal(await page.locator('.side-right').isVisible(), true);
+  await page.waitForFunction(() => [...document.querySelectorAll('[data-decoration]')].every((image) => image.complete && image.naturalWidth > 0));
+  assert.deepEqual([...loadedExtras].sort(), [
+    ...['01', '02', '03'].map((id) => `${prefix}assets/audio/video-audio-${id}.mp3`),
+    `${prefix}assets/backgrounds/left-overlay.webp`, `${prefix}assets/backgrounds/right-overlay.webp`,
+  ].sort());
   await page.screenshot({ path: 'test-results/production-desktop.png' });
   assert.deepEqual(errors, []);
   assert.deepEqual(external, []);
-  await writeFile('test-results/production.json', JSON.stringify({ status: 'passed', executedAt, score, nestedPath: prefix, loadedMemes: [...loadedMemes].sort(), viewports: ['390x844', '1440x1000'], externalRequests: external, errors, testApiAbsent: true }, null, 2));
-  console.log(`✓ Production: ${prefix}, все 10 PNG загружены, слияния и пауза работают, мобильный и desktop-размеры, нет внешних запросов и тестового API.`);
+  await writeFile('test-results/production.json', JSON.stringify({ status: 'passed', executedAt, score, nestedPath: prefix, loadedMemes: [...loadedMemes].sort(), loadedExtras: [...loadedExtras].sort(), viewports: ['390x844', '1440x1000'], externalRequests: external, errors, testApiAbsent: true }, null, 2));
+  console.log(`✓ Production: ${prefix}, 10 PNG + 2 WebP + 3 MP3 загружены, слияния и пауза работают, декор адаптивен, нет внешних запросов и тестового API.`);
 } catch (error) {
   console.error(error);
   await writeFile('test-results/production.json', JSON.stringify({ status: 'failed', executedAt, error: String(error), externalRequests: external, errors }, null, 2));

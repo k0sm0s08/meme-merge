@@ -1,6 +1,8 @@
 const shapes = {
   play: '<path d="m9 5 11 7-11 7z" fill="currentColor" stroke="none"/>',
   pause: '<path d="M9 5v14M15 5v14" stroke-width="3"/>',
+  music: '<path d="M9 18V5l11-2v13M9 8l11-2"/><ellipse cx="6" cy="18" rx="3" ry="2.5"/><ellipse cx="17" cy="16" rx="3" ry="2.5"/>',
+  volume: '<path d="m11 4-6 5H2v6h3l6 5zM15 8a6 6 0 0 1 0 8M18 5a10 10 0 0 1 0 14"/>',
   restart: '<path d="M4 10a8 8 0 1 1 2 8M4 4v6h6"/>',
   crown: '<path d="m3 6 4 4 5-6 5 6 4-4-2 12H5zM7 21h10"/>',
   arrow: '<path d="M5 12h14m-5-5 5 5-5 5"/>',

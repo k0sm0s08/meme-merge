@@ -1,4 +1,4 @@
-# Как открыть Мемный Мерж по ссылке
+# Как открыть Мелстрой мерж по ссылке
 
 Игра — статический сайт. Для телефона и компьютера используется одна HTTPS-ссылка. Логика игры, физика и интерфейс при настройке публикации не менялись.
 
@@ -8,7 +8,7 @@
 
 1. Открой репозиторий и нажми **Settings → Pages**.
 2. В разделе **Build and deployment** для **Source** выбери **GitHub Actions**.
-3. Открой Pull Request с игрой и настройкой публикации. После успешной проверки сборки нажми **Merge pull request → Confirm merge**.
+3. Открой Pull Request с обновлением игры. После успешной проверки сборки нажми **Merge pull request → Confirm merge**.
 4. Перейди во вкладку **Actions** и открой запуск **Build and deploy Meme Merge** для ветки `main`. Дождись зелёных галочек у `build` и `deploy`.
 5. Вернись в **Settings → Pages** и нажми **Visit site**. Открой эту же ссылку на телефоне.
 
@@ -26,7 +26,7 @@
 
 https://github.com/k0sm0s08/meme-merge/compare/main...work?expand=1
 
-Нажми **Create pull request**. Название и текст для него находятся в [PULL_REQUEST.md](PULL_REQUEST.md). Затем выполни шаги публикации выше.
+Нажми **Create pull request**. Для обновления название и текст находятся в [PULL_REQUEST.md](PULL_REQUEST.md). Затем выполни шаги публикации выше.
 
 ### Что делает workflow
 
