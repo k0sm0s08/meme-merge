@@ -6,7 +6,7 @@ export class OverflowMonitor {
     let longest = 0;
     for (const ball of balls) {
       const settled = time - ball.bornAt >= RULES.stabilizationMs && ball.body.speed < 1.5;
-      const aboveLine = ball.body.position.y - ball.radius < BOARD.dangerY;
+      const aboveLine = ball.body.vertices!.some((vertex) => vertex.y < BOARD.dangerY);
       ball.overflowMs = settled && aboveLine && !ball.merging ? ball.overflowMs + delta : 0;
       longest = Math.max(longest, ball.overflowMs);
     }

@@ -75,15 +75,18 @@ export function prepareMemeSource(source: HTMLImageElement | HTMLCanvasElement):
     for (let x = left; x <= right; x++) {
       const p = y * width + x;
       if (!originalAlpha[p]) continue;
-      let sum = 0;
-      for (let dy = -1; dy <= 1; dy++) {
-        for (let dx = -1; dx <= 1; dx++) {
-          const px = x + dx;
-          const py = y + dy;
-          if (px >= 0 && px < width && py >= 0 && py < height) sum += originalAlpha[py * width + px];
+      if (backgroundRemoved) {
+        let sum = 0;
+        for (let dy = -1; dy <= 1; dy++) {
+          for (let dx = -1; dx <= 1; dx++) {
+            const px = x + dx;
+            const py = y + dy;
+            if (px >= 0 && px < width && py >= 0 && py < height) sum += originalAlpha[py * width + px];
+          }
         }
+        pixels[p * 4 + 3] = Math.min(originalAlpha[p], Math.round(sum / 9));
       }
-      pixels[p * 4 + 3] = Math.min(originalAlpha[p], Math.round(sum / 9));
+      // Prepared transparent PNGs already have a soft edge; do not erode them a second time.
       if (pixels[p * 4 + 3] > 8) {
         cropLeft = Math.min(cropLeft, x);
         cropRight = Math.max(cropRight, x);
@@ -102,9 +105,9 @@ export function prepareMemeSource(source: HTMLImageElement | HTMLCanvasElement):
 }
 
 /** A character cutout, not a photo pasted over an opaque colored disk. */
-export function drawMemeCutout(ctx: CanvasRenderingContext2D, source: HTMLImageElement | HTMLCanvasElement, color: string, size: number): void {
+export function drawMemeCutout(ctx: CanvasRenderingContext2D, source: HTMLImageElement | HTMLCanvasElement, _color: string, size: number): void {
   const prepared = prepareMemeSource(source).canvas;
-  const padding = 5;
+  const padding = 2;
   const scale = (size - padding * 2) / Math.max(prepared.width, prepared.height);
   const width = prepared.width * scale;
   const height = prepared.height * scale;
@@ -113,18 +116,7 @@ export function drawMemeCutout(ctx: CanvasRenderingContext2D, source: HTMLImageE
   ctx.save();
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = 'high';
-  ctx.shadowColor = color + '85';
-  ctx.shadowBlur = 3;
   ctx.drawImage(prepared, x, y, width, height);
   ctx.restore();
-  // Soft circular envelope keeps the artwork within its invisible round collider.
-  const center = size / 2;
-  const mask = ctx.createRadialGradient(center, center, center - 8, center, center, center - 1);
-  mask.addColorStop(0, '#fff');
-  mask.addColorStop(1, 'rgba(255,255,255,0)');
-  ctx.save();
-  ctx.globalCompositeOperation = 'destination-in';
-  ctx.fillStyle = mask;
-  ctx.fillRect(0, 0, size, size);
-  ctx.restore();
+  // Preserve the actual silhouette. Its alpha contour defines the collider, including concavities.
 }

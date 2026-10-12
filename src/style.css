@@ -29,6 +29,8 @@ img { object-fit: contain; }
 #game { width: 100%; height: 100%; }
 #ui { position: absolute; top: 0; left: 0; width: 390px; height: 844px; transform-origin: 0 0; pointer-events: none; }
 #ui button, #ui .modal-overlay { pointer-events: auto; }
+#ui > section[hidden] { display: none !important; }
+#stage.modal-open #game { visibility: hidden; }
 .desktop-footer { position: absolute; bottom: 12px; right: 24px; margin: 0; font-size: 11px; color: #77788f; letter-spacing: .4px; }
 #loading { position: absolute; inset: 0; z-index: 100; display: flex; align-items: center; justify-content: center; flex-direction: column; background: #232a32; font-size: 15px; color: var(--muted); }
 .loading-mark { font-size: 65px; letter-spacing: -8px; font-weight: 900; color: var(--lavender); }
@@ -49,7 +51,7 @@ img { object-fit: contain; }
 .brand-title > span { color: var(--lavender); position: relative; }
 .title-star { color: var(--lime); font-size: 33px; position: absolute; top: 13px; right: -48px; transform: rotate(13deg); }
 .menu-subtitle { font-size: 15px; color: #a7a3be; line-height: 1.6; margin: 20px 0 0; }
-.menu-art { height: 215px; position: relative; margin: 0 -6px; }
+.menu-art { height: 245px; position: relative; margin: 0 -6px; }
 .orbit { position: absolute; width: 277px; height: 160px; border: 1px solid #62577830; border-radius: 50%; left: 26px; top: 48px; transform: rotate(-24deg); }
 .orbit-two { transform: rotate(25deg); width: 220px; left: 60px; height: 207px; top: 18px; border-style: dashed; opacity: .5; }
 .hero-ball { position: absolute; filter: drop-shadow(0 12px 15px #0005); animation: float 5s ease-in-out infinite; }
@@ -68,7 +70,6 @@ img { object-fit: contain; }
 .record-tag { margin-left: auto; background: #2d29408c; color: #b2a9c7; border-radius: 20px; padding: 7px 11px; font-size: 10px; }
 .menu-screen .primary { justify-content: flex-start; padding: 0 20px; }
 .menu-screen .primary span { flex: 1; }
-.menu-screen .secondary { margin-top: 12px; font-size: 14px; min-height: max(50px, var(--tap-size, 44px)); }
 .menu-screen > .text-button { width: 100%; margin-top: 9px; }
 .menu-footnote { position: absolute; bottom: 24px; left: 0; right: 0; text-align: center; color: #74758f; font-size: 9px; }
 .game-screen { position: relative; width: 100%; height: 100%; }
@@ -127,15 +128,6 @@ img { object-fit: contain; }
 .result-score span { display: block; font-size: 8px; letter-spacing: 2px; color: #9fa58f; font-weight: 700; margin-top: 2px; }
 .result-best { display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 11px; color: #aea5bf; margin-top: 20px; }
 .result-best svg { width: 14px; height: 14px; color: #b9ceba; }
-.help-merge { display: flex; align-items: center; justify-content: center; gap: 9px; margin: 24px 0 30px; color: #bbb4cc; font-weight: 900; }
-.help-merge img { width: 45px; height: 45px; }
-.help-merge img:last-child { width: 55px; height: 55px; }
-.help-steps { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 21px; }
-.help-steps li { display: flex; align-items: flex-start; gap: 13px; }
-.help-steps li > span { color: #bbb4cc; font-size: 11px; font-weight: 900; background: #bbb4cc12; border-radius: 10px; padding: 7px; }
-.help-steps strong { font-size: 13px; }
-.help-steps p { color: #a89cbb; font-size: 11px; line-height: 1.6; margin: 5px 0 0; }
-.help-warning { color: #d2bd9a; background: #ffcc8609; border: 1px solid #ffcc861a; font-size: 10px; line-height: 1.7; border-radius: 12px; padding: 12px; margin-top: 26px; }
 .collection-dialog { padding: 26px 17px 22px; }
 .collection-dialog h2 { font-size: 22px; margin-bottom: 9px; }
 .collection-subtitle { text-align: center; font-size: 11px; color: #9f94b3; margin-bottom: 25px; }

@@ -1,5 +1,5 @@
 import type Phaser from 'phaser';
-import { LEVELS, MAX_LEVEL, levelConfig } from '../config/gameConfig';
+import { LEVELS } from '../config/gameConfig';
 import { saves } from '../services/SaveService';
 import { textureDataUrl } from './TextureFactory';
 import { icon } from './icons';
@@ -57,13 +57,11 @@ export class GameUI {
       <div class="menu-art" aria-hidden="true"><div class="orbit orbit-one"></div><div class="orbit orbit-two"></div><span class="art-spark spark-one">✦</span><span class="art-spark spark-two">+</span>${this.image(1, 'hero-ball hero-one')}${this.image(3, 'hero-ball hero-two')}${this.image(5, 'hero-ball hero-three')}${this.image(7, 'hero-ball hero-four')}<span class="art-caption">маленькие мемы → большие эмоции</span></div>
       <div class="menu-record">${icon('crown')}<span>ТВОЙ РЕКОРД<strong>${format(bestScore)}</strong></span><span class="record-tag">${gamesPlayed ? `${gamesPlayed} партий` : 'Всё впереди'}</span></div>
       <button class="button primary" data-action="play">${icon('play')}<span>Играть</span>${icon('arrow')}</button>
-      <button class="button secondary" data-action="help">${icon('help')}Как играть</button>
       ${this.audioControls()}
       <button class="text-button" data-action="collection">Все ${LEVELS.length} мемов ${icon('arrow')}</button>
       <div class="menu-footnote">Твоя следующая попытка может стать лучшей.</div>
     </section>`;
     this.bind('play', play);
-    this.bind('help', () => this.help(() => this.closeModal()));
     this.bind('collection', () => this.collection(() => this.closeModal()));
     this.bindAudioControls();
   }
@@ -143,10 +141,6 @@ export class GameUI {
     ]);
   }
 
-  help(close: ButtonAction): void {
-    this.dialog('Всё просто', `<div class="help-merge">${this.image(1)}<span>+</span>${this.image(1)}<span>→</span>${this.image(2)}</div><ol class="help-steps"><li><span>01</span><div><strong>Выбери место</strong><p>Двигай мышь или веди пальцем по полю.</p></div></li><li><span>02</span><div><strong>Сбрось мем</strong><p>Кликни мышью или отпусти палец.</p></div></li><li><span>03</span><div><strong>Собирай побольше</strong><p>Одинаковые мемы сливаются. Цепочки дают комбо!</p></div></li></ol><p class="help-warning">Не заполняй поле выше пунктирной линии. Два мема уровня ${MAX_LEVEL} принесут ${levelConfig(MAX_LEVEL).points} очков и освободят место.</p>`, [['Понятно, погнали', 'primary', close]]);
-  }
-
   collection(close: ButtonAction): void {
     const maxLevel = saves.snapshot.maxLevel;
     this.dialog('От мема до легенды', `<p class="collection-subtitle">${LEVELS.length} уровней. Сколько соберёшь ты?</p><div class="collection-grid">${LEVELS.map((config) => `<div class="collection-item ${config.level > maxLevel ? 'undiscovered' : ''}">${this.image(config.level)}<strong>${String(config.level).padStart(2, '0')}</strong><span>${config.name}</span><small>+${format(config.points)}</small></div>`).join('')}</div>`, [['Вернуться', 'secondary', close]], 'collection-dialog');
@@ -179,7 +173,7 @@ export class GameUI {
   closeModal(): void {
     this.modal?.remove();
     this.modal = null;
-    this.root.querySelector<HTMLElement>('section')?.removeAttribute('inert');
+    this.modalVisibility(false);
     this.previousFocus?.focus();
     this.previousFocus = null;
   }
@@ -187,7 +181,7 @@ export class GameUI {
   private dialog(title: string, body: string, buttons: [string, string, ButtonAction][], className = ''): void {
     if (!this.modal) this.previousFocus = document.activeElement as HTMLElement;
     this.modal?.remove();
-    this.root.querySelector<HTMLElement>('section')?.setAttribute('inert', '');
+    this.modalVisibility(true);
     const overlay = document.createElement('div');
     overlay.className = 'modal-overlay';
     overlay.innerHTML = `<section class="dialog ${className}" role="dialog" aria-modal="true" aria-labelledby="dialog-title"><span class="dialog-topline"></span><h2 id="dialog-title">${title}</h2>${body}<div class="dialog-actions">${buttons.map(([label, type], i) => `<button class="button ${type}" data-dialog="${i}">${label}</button>`).join('')}</div></section>`;
@@ -200,6 +194,13 @@ export class GameUI {
 
   private bind(action: string, callback: ButtonAction): void {
     this.root.querySelector(`[data-action="${action}"]`)?.addEventListener('click', callback);
+  }
+
+  private modalVisibility(open: boolean): void {
+    const screen = this.root.querySelector<HTMLElement>(':scope > section');
+    if (screen) { screen.hidden = open; screen.toggleAttribute('inert', open); }
+    // Keep the canvas layout for Phaser scaling while hiding the entire underlying game.
+    document.getElementById('stage')!.classList.toggle('modal-open', open);
   }
 
   private clear(): void {

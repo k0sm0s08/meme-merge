@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { BOARD, levelConfig, nextLevel } from '../config/gameConfig';
+import { levelConfig, nextLevel } from '../config/gameConfig';
 import { BallManager } from './BallManager';
 
 export interface MergeResult {
@@ -20,8 +20,8 @@ export class MergeManager {
       // Phaser's event declarations use the static Body class for runtime BodyType objects.
       const bodyA = pair.bodyA as unknown as MatterJS.BodyType;
       const bodyB = pair.bodyB as unknown as MatterJS.BodyType;
-      const a = this.balls.balls.get(bodyA.id);
-      const b = this.balls.balls.get(bodyB.id);
+      const a = this.balls.balls.get(bodyA.parent.id);
+      const b = this.balls.balls.get(bodyB.parent.id);
       if (!a || !b || a.id === b.id || a.level !== b.level || a.merging || b.merging) continue;
       // Lock inside the collision callback; mutation happens only after Engine.update.
       a.merging = b.merging = true;
@@ -44,14 +44,10 @@ export class MergeManager {
       const maximum = next === null;
       const level = next ?? a.level;
       const config = levelConfig(level);
-      const radius = config.diameter / 2;
       const centerX = (a.body.position.x + b.body.position.x) / 2;
       const centerY = (a.body.position.y + b.body.position.y) / 2;
-      const position = maximum ? {
-        x: Phaser.Math.Clamp(centerX, BOARD.left + radius, BOARD.right - radius),
-        y: Phaser.Math.Clamp(centerY, BOARD.spawnY, BOARD.bottom - radius),
-      } : this.balls.mergePosition(centerX, centerY, radius);
-      const { x, y } = position;
+      let x = centerX;
+      let y = centerY;
       const velocity = {
         x: Phaser.Math.Clamp((a.body.velocity.x + b.body.velocity.x) * 0.36, -4, 4),
         y: Phaser.Math.Clamp((a.body.velocity.y + b.body.velocity.y) * 0.36, -3, 6),
@@ -61,6 +57,8 @@ export class MergeManager {
       this.balls.remove(b);
       if (!maximum) {
         const merged = this.balls.create(level, x, y, time, true);
+        x = merged.body.position.x;
+        y = merged.body.position.y;
         this.scene.matter.body.setVelocity(merged.body, velocity);
         this.scene.matter.body.setAngularVelocity(merged.body, angularVelocity);
       }

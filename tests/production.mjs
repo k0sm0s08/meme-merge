@@ -50,6 +50,7 @@ try {
   await page.goto(origin + prefix);
   await page.getByRole('button', { name: 'Играть', exact: true }).waitFor();
   assert.equal(await page.title(), 'Мелстрой мерж');
+  assert.equal(await page.getByRole('button', { name: 'Как играть', exact: true }).count(), 0);
   assert.equal(await page.locator('.side-left').isVisible(), false);
   assert.equal(await page.evaluate(() => '__MEME_TEST__' in window), false);
   assert.equal(await page.locator('#loading').count(), 0);
@@ -66,6 +67,12 @@ try {
   assert.ok(score > 0, 'В production происходят слияния и начисляются очки');
   await page.getByRole('button', { name: 'Пауза', exact: true }).click();
   await page.getByRole('button', { name: 'Продолжить', exact: true }).click();
+  await page.getByRole('button', { name: 'Цепочка мемов' }).click();
+  assert.equal(await page.locator('.collection-item').count(), 10);
+  assert.equal(await page.locator('.game-screen').isVisible(), false);
+  assert.equal(await page.locator('#game').evaluate((element) => getComputedStyle(element).visibility), 'hidden');
+  await page.getByRole('button', { name: 'Вернуться', exact: true }).click();
+  assert.equal(await page.locator('.game-screen').isVisible(), true);
   await mkdir('test-results', { recursive: true });
   await page.screenshot({ path: 'test-results/production-mobile.png' });
   await page.setViewportSize({ width: 1440, height: 1000 });
@@ -80,6 +87,11 @@ try {
     `${prefix}assets/backgrounds/left-overlay.webp`, `${prefix}assets/backgrounds/right-overlay.webp`,
   ].sort());
   await page.screenshot({ path: 'test-results/production-desktop.png' });
+  await page.goto(origin + prefix + '?debugPhysics=1');
+  await page.getByRole('button', { name: 'Играть', exact: true }).click();
+  await page.waitForTimeout(150);
+  assert.equal(await page.evaluate(() => '__MEME_TEST__' in window), false);
+  await page.screenshot({ path: 'test-results/production-debug.png' });
   assert.deepEqual(errors, []);
   assert.deepEqual(external, []);
   await writeFile('test-results/production.json', JSON.stringify({ status: 'passed', executedAt, score, nestedPath: prefix, loadedMemes: [...loadedMemes].sort(), loadedExtras: [...loadedExtras].sort(), viewports: ['390x844', '1440x1000'], externalRequests: external, errors, testApiAbsent: true }, null, 2));

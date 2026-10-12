@@ -8,7 +8,6 @@ const shapes = {
   arrow: '<path d="M5 12h14m-5-5 5 5-5 5"/>',
   close: '<path d="m6 6 12 12M6 18 18 6"/>',
   home: '<path d="m3 10 9-7 9 7v10h-6v-7H9v7H3z"/>',
-  help: '<circle cx="12" cy="12" r="9"/><path d="M9.5 8a2.5 2.5 0 0 1 5 0c0 2-2.5 2-2.5 4M12 16h.01"/>',
   collection: '<circle cx="8" cy="8" r="4"/><circle cx="17" cy="8" r="3"/><circle cx="8" cy="18" r="3"/><circle cx="17" cy="17" r="4"/>',
   star: '<path d="m12 3 2.7 5.5 6.1.9-4.4 4.3 1 6.1-5.4-2.9-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/>',
   touch: '<path d="M9 12V5a2 2 0 0 1 4 0v6l2-1 5 2v5a5 5 0 0 1-5 5h-3l-6-7a2 2 0 0 1 3-3z"/>',
