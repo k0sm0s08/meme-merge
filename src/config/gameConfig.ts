@@ -20,6 +20,7 @@ export const RULES = {
   maxStepsPerFrame: 8,
   maxFrameDeltaMs: 100,
   aimResponseMs: 38,
+  fastMotionThreshold: 6,
 } as const;
 
 export interface MemeLevel {

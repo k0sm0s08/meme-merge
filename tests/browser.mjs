@@ -199,12 +199,12 @@ try {
       assert.ok(item.feathered > 100, JSON.stringify(item));
     }
   });
-  await check('Инструкция и коллекция 10 уровней: номера и изображения совпадают', async () => {
-    await page.getByRole('button', { name: 'Как играть', exact: true }).click();
-    assert.equal(await page.getByRole('dialog').count(), 1);
-    await page.getByRole('button', { name: 'Понятно, погнали' }).click();
+  await check('Кнопка инструкции удалена; коллекция 10 уровней отображается без фонового интерфейса', async () => {
+    assert.equal(await page.getByRole('button', { name: 'Как играть', exact: true }).count(), 0);
     await page.getByRole('button', { name: 'Все 10 мемов' }).click();
     assert.equal(await page.locator('.collection-item').count(), 10);
+    assert.equal(await page.locator('.menu-screen').isVisible(), false);
+    assert.equal(await page.locator('#game').evaluate((element) => getComputedStyle(element).visibility), 'hidden');
     const items = await page.locator('.collection-item img').evaluateAll((images) => images.map((img) => ({ level: Number(img.dataset.level), source: img.src })));
     assert.deepEqual(items.map(({ level }) => level), [1, 2, 3, 4, 5, 7, 8, 9, 10, 11]);
     for (const item of items) {
@@ -293,7 +293,7 @@ try {
     await legacy.close();
   });
   await start();
-  await check('Все 10 игровых диаметров и коллайдеров увеличены ровно на 12%', async () => {
+  await check('Все 10 размеров ×1.12 сохранены; составные тела используют общий origin со спрайтом', async () => {
     const levels = [1, 2, 3, 4, 5, 7, 8, 9, 10, 11];
     const original = [30, 38, 47, 57, 69, 96, 112, 130, 150, 172];
     const state = await page.evaluate((ids) => {
@@ -304,9 +304,11 @@ try {
     }, levels);
     for (const [index, ball] of state.balls.entries()) {
       assert.equal(ball.level, levels[index]);
-      assert.ok(Math.abs(ball.radius * 2 - original[index] * 1.12) < 1e-9);
-      assert.equal(ball.colliderRadius, ball.radius);
-      assert.equal(ball.visualDiameter, ball.radius * 2);
+      assert.ok(Math.abs(ball.visualDiameter - original[index] * 1.12) < 1e-9);
+      const shape = state.shapes[index];
+      assert.equal(ball.parts.length, shape.parts.length);
+      assert.equal(ball.originX, shape.originX);
+      assert.equal(ball.originY, shape.originY);
     }
   });
   await check('Прицел плавно следует за мышью, затем сходится к точной позиции', async () => {
@@ -332,12 +334,11 @@ try {
     const ball = (await snapshot()).balls[0];
     assert.equal(ball.level, currentLevel);
     assert.ok(Math.abs(ball.x - 100) < 1);
-    assert.ok(Math.abs(ball.radius - [15, 19, 23.5, 28.5, 34.5][currentLevel - 1] * 1.12) < 1e-9);
-    assert.equal(ball.visualDiameter, ball.radius * 2);
-    assert.equal(ball.colliderRadius, ball.radius);
+    assert.ok(Math.abs(ball.visualDiameter - [30, 38, 47, 57, 69][currentLevel - 1] * 1.12) < 1e-9);
+    assert.ok(ball.parts.length > 1);
     await wait(() => window.__MEME_TEST__.snapshot().balls[0].y > 670, null, 4000);
     const settled = (await snapshot()).balls[0];
-    assert.ok(settled.y + settled.radius <= 720);
+    assert.ok(Math.max(...settled.vertices.map((vertex) => vertex.y)) <= 719);
   });
   await check('Пауза полностью останавливает физику; кнопки не сбрасывают мемы', async () => {
     await page.getByRole('button', { name: 'Пауза', exact: true }).click();
@@ -371,7 +372,7 @@ try {
     assert.equal(state.listeners, 1);
   });
   await check('Реальное столкновение: 1 + 1 → 2 и ровно 4 очка', async () => {
-    await fixture([{ level: 1, x: 180, y: 650 }, { level: 1, x: 207, y: 650 }]);
+    await fixture([{ level: 1, x: 190, y: 650 }, { level: 1, x: 202, y: 650 }]);
     await wait(() => window.__MEME_TEST__.snapshot().score === 4);
     const state = await snapshot();
     assert.equal(state.balls.length, 1);
@@ -382,7 +383,7 @@ try {
   });
   await restart();
   await check('Одновременные контакты трёх мемов не дают двойного слияния', async () => {
-    await fixture([{ level: 1, x: 174, y: 650 }, { level: 1, x: 199, y: 650 }, { level: 1, x: 224, y: 650 }]);
+    await fixture([{ level: 1, x: 181, y: 650 }, { level: 1, x: 194, y: 650 }, { level: 1, x: 207, y: 650 }]);
     await wait(() => window.__MEME_TEST__.snapshot().score === 4);
     await page.waitForTimeout(300);
     const state = await snapshot();
@@ -393,8 +394,8 @@ try {
   await restart();
   await check('Цепное слияние четырёх мемов, комбо, 16 очков', async () => {
     await fixture([
-      { level: 1, x: 181, y: 640 }, { level: 1, x: 208, y: 640 },
-      { level: 1, x: 181, y: 667 }, { level: 1, x: 208, y: 667 },
+      { level: 1, x: 187, y: 640 }, { level: 1, x: 201, y: 640 },
+      { level: 1, x: 187, y: 660 }, { level: 1, x: 201, y: 660 },
     ]);
     await wait(() => window.__MEME_TEST__.snapshot().score === 16);
     const state = await snapshot();
@@ -405,12 +406,12 @@ try {
   });
   await restart();
   await check('5 + 5 → 7: правильная фотография, размер и ровно 128 очков', async () => {
-    await fixture([{ level: 5, x: 161, y: 570 }, { level: 5, x: 229, y: 570 }]);
+    await fixture([{ level: 5, x: 181, y: 570 }, { level: 5, x: 209, y: 570 }]);
     await wait(() => window.__MEME_TEST__.snapshot().score === 128);
     const state = await snapshot();
     assert.equal(state.balls.length, 1);
     assert.equal(state.balls[0].level, 7);
-    assert.equal(state.balls[0].radius, 53.76);
+    assert.equal(state.balls[0].visualDiameter, 107.52);
     assert.equal(state.balls[0].texture, 'meme-circle-7');
     assert.equal(state.removedTextureExists, false);
     await page.waitForTimeout(250);
@@ -418,7 +419,7 @@ try {
   });
   await restart();
   await check('Цепное слияние через пропуск: 5 + 5 → 7, затем 7 + 7 → 8', async () => {
-    await fixture([{ level: 5, x: 165, y: 580 }, { level: 5, x: 225, y: 580 }, { level: 7, x: 195, y: 650 }]);
+    await fixture([{ level: 5, x: 181, y: 580 }, { level: 5, x: 209, y: 580 }, { level: 7, x: 195, y: 650 }]);
     await wait(() => window.__MEME_TEST__.snapshot().score === 384);
     const state = await snapshot();
     assert.equal(state.balls.length, 1);
@@ -434,22 +435,24 @@ try {
       [5, 7, 34.5, 96, 128], [7, 8, 48, 112, 256], [8, 9, 56, 130, 512],
       [9, 10, 65, 150, 1024], [10, 11, 75, 172, 2048],
     ];
-    for (const [source, target, radius, diameter, points] of transitions) {
+    for (const [source, target, , diameter, points] of transitions) {
       const before = (await snapshot()).score;
-      await fixture([{ level: source, x: 195 - radius + 1, y: 540 }, { level: source, x: 195 + radius - 1, y: 540 }]);
+      const shape = (await snapshot()).shapes.find((shape) => shape.level === source);
+      const separation = (shape.bounds.maxX - shape.bounds.minX) * 0.2;
+      await fixture([{ level: source, x: 195 - separation, y: 540 }, { level: source, x: 195 + separation, y: 540 }]);
       await wait((total) => window.__MEME_TEST__.snapshot().score === total, before + points);
       const state = await snapshot();
       assert.equal(state.balls.length, 1);
       assert.equal(state.balls[0].level, target);
       assert.equal(state.balls[0].texture, `meme-circle-${target}`);
-      assert.ok(Math.abs(state.balls[0].radius * 2 - diameter * 1.12) < 1e-9);
+      assert.ok(Math.abs(state.balls[0].visualDiameter - diameter * 1.12) < 1e-9);
       assert.equal(state.removedTextureExists, false);
       assert.equal(state.bodies, 4);
     }
   });
   await check('11 + 11 исчезают, добавляют 2048 очков; партия продолжается', async () => {
     const before = (await snapshot()).score;
-    await fixture([{ level: 11, x: 114, y: 540 }, { level: 11, x: 276, y: 540 }]);
+    await fixture([{ level: 11, x: 155, y: 540 }, { level: 11, x: 235, y: 540 }]);
     await wait((points) => window.__MEME_TEST__.snapshot().score === points, before + 2048);
     assert.equal((await snapshot()).balls.length, 0);
     assert.equal((await snapshot()).ended, false);
@@ -473,8 +476,8 @@ try {
     const state = await snapshot();
     assert.equal(state.balls.length, 3);
     for (const ball of state.balls) {
-      assert.ok(ball.x - ball.radius >= 26 && ball.x + ball.radius <= 364, JSON.stringify(ball));
-      assert.ok(ball.y + ball.radius <= 720, JSON.stringify(ball));
+      assert.ok(ball.vertices.every((vertex) => vertex.x >= 27 && vertex.x <= 363), JSON.stringify(ball));
+      assert.ok(ball.vertices.every((vertex) => vertex.y <= 719), JSON.stringify(ball));
     }
   });
   await restart();
@@ -488,8 +491,8 @@ try {
     const meanSpeed = state.balls.reduce((sum, ball) => sum + ball.speed, 0) / state.balls.length;
     assert.ok(meanSpeed < 0.25, `Стопка не успокоилась: ${meanSpeed}`);
     for (const ball of state.balls) {
-      assert.ok(ball.x - ball.radius >= 26 && ball.x + ball.radius <= 364);
-      assert.ok(ball.y + ball.radius <= 720);
+      assert.ok(ball.vertices.every((vertex) => vertex.x >= 27 && vertex.x <= 363));
+      assert.ok(ball.vertices.every((vertex) => vertex.y <= 719));
       assert.ok(Math.abs(ball.angularVelocity) <= 0.066);
       assert.ok(Number.isFinite(ball.visualX) && Number.isFinite(ball.visualY));
     }
@@ -624,7 +627,7 @@ try {
       const state = await touchState();
       assert.equal(state.activePointer, null);
       assert.equal(state.paused, false);
-      assert.ok(Math.abs(state.balls[0].x - (362 - state.balls[0].radius - 1)) < 1);
+      assert.ok(Math.abs(state.balls[0].x - (362 - state.shapes.find((shape) => shape.level === state.balls[0].level).bounds.maxX - 1)) < 1);
     });
     await check('Масштабированный экран: палец вне canvas следует за движением и сбрасывает мем', async () => {
       await resetTouch();
@@ -639,7 +642,7 @@ try {
       await touch('touchEnd');
       await touchPage.waitForFunction(() => window.__MEME_TEST__.snapshot().balls.length === 1);
       const ball = (await touchState()).balls[0];
-      assert.ok(Math.abs(ball.x - (362 - ball.radius - 1)) < 1);
+      assert.ok(Math.abs(ball.x - (362 - (await touchState()).shapes.find((shape) => shape.level === ball.level).bounds.maxX - 1)) < 1);
       assert.equal(await touchPage.evaluate(() => document.documentElement.scrollWidth), 768);
       assert.equal(await touchPage.evaluate(() => window.scrollY), 0);
     });
@@ -721,7 +724,7 @@ try {
     await restrictedPage.goto(url);
     await restrictedPage.getByRole('button', { name: 'Играть', exact: true }).click();
     await restrictedPage.waitForFunction(() => !!window.__MEME_TEST__ && window.__MEME_TEST__.gameActive());
-    await restrictedPage.evaluate(() => window.__MEME_TEST__.fixture([{ level: 1, x: 180, y: 650 }, { level: 1, x: 207, y: 650 }]));
+    await restrictedPage.evaluate(() => window.__MEME_TEST__.fixture([{ level: 1, x: 190, y: 650 }, { level: 1, x: 202, y: 650 }]));
     await restrictedPage.waitForFunction(() => window.__MEME_TEST__.snapshot().score === 4);
     assert.equal(await restrictedPage.evaluate(() => window.__MEME_TEST__.snapshot().saves.bestScore), 4);
     await restricted.close();

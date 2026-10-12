@@ -11,6 +11,8 @@ import { audio } from '../services/AudioManager';
 import { Effects } from '../ui/Effects';
 import { ui } from '../ui/GameUI';
 import { memeTexture } from '../ui/TextureFactory';
+import { memeShape } from '../game/MemeShape';
+import { PhysicsDebug } from '../game/PhysicsDebug';
 
 export class GameScene extends Phaser.Scene {
   balls!: BallManager;
@@ -29,6 +31,7 @@ export class GameScene extends Phaser.Scene {
   private accumulator = 0;
   private dropReadyAt = 0;
   aimController!: AimController;
+  physicsDebug!: PhysicsDebug;
   private aimX = GAME.width / 2;
   private targetAimX = GAME.width / 2;
   private lastComboAt = -Infinity;
@@ -55,6 +58,7 @@ export class GameScene extends Phaser.Scene {
     this.world = this.matter.world;
     this.drawBoard();
     this.createWalls();
+    this.physicsDebug = new PhysicsDebug(this);
     this.guide = this.add.graphics().setDepth(2);
     this.dangerLine = this.add.graphics().setDepth(6);
     this.drawDanger(false);
@@ -91,20 +95,26 @@ export class GameScene extends Phaser.Scene {
     while (this.accumulator >= RULES.fixedStepMs && steps < RULES.maxStepsPerFrame && !this.ended) {
       this.balls.limitVelocity();
       this.balls.capturePrevious();
-      this.matter.world.step(RULES.fixedStepMs);
-      this.gameTime += RULES.fixedStepMs;
-      this.merges.flush(this.gameTime);
-      this.balls.limitVelocity();
-      const progress = this.overflow.update(this.balls.balls.values(), this.gameTime, RULES.fixedStepMs);
-      ui.warning(progress);
-      this.drawDanger(progress > 0);
-      if (progress >= 1) this.gameOver();
+      // Thin contour features need a smaller travel distance during fast falls/rotation.
+      const substeps = this.balls.needsSubstep() ? 2 : 1;
+      const step = RULES.fixedStepMs / substeps;
+      for (let substep = 0; substep < substeps && !this.ended; substep++) {
+        this.matter.world.step(step);
+        this.gameTime += step;
+        this.merges.flush(this.gameTime);
+        this.balls.limitVelocity();
+        const progress = this.overflow.update(this.balls.balls.values(), this.gameTime, step);
+        ui.warning(progress);
+        this.drawDanger(progress > 0);
+        if (progress >= 1) this.gameOver();
+      }
       this.accumulator -= RULES.fixedStepMs;
       steps++;
     }
     // Drop excess time instead of a runaway catch-up loop after long frames.
     if (steps === RULES.maxStepsPerFrame) this.accumulator = Math.min(this.accumulator, RULES.fixedStepMs);
     this.balls.sync(this.ended ? 1 : Math.min(1, this.accumulator / RULES.fixedStepMs));
+    if (this.physicsDebug.enabled) this.physicsDebug.draw(this.matter.world.getAllBodies());
     if (!this.ended) {
       const ready = this.gameTime >= this.dropReadyAt;
       this.preview.setVisible(ready && !this.bombArmed);
@@ -202,8 +212,8 @@ export class GameScene extends Phaser.Scene {
   }
 
   private aim(x: number, snap = false): void {
-    const radius = levelConfig(this.currentLevel).diameter / 2;
-    this.targetAimX = Phaser.Math.Clamp(x, BOARD.left + radius + 1, BOARD.right - radius - 1);
+    const shape = memeShape(this.currentLevel);
+    this.targetAimX = Phaser.Math.Clamp(x, BOARD.left - shape.bounds.minX + 1, BOARD.right - shape.bounds.maxX - 1);
     if (snap) this.aimX = this.targetAimX;
     this.preview.x = this.aimX;
     this.drawGuide();
@@ -211,13 +221,14 @@ export class GameScene extends Phaser.Scene {
 
   private updatePreview(): void {
     const config = levelConfig(this.currentLevel);
-    this.preview.setTexture(memeTexture(this.currentLevel)).setDisplaySize(config.diameter, config.diameter);
+    const shape = memeShape(this.currentLevel);
+    this.preview.setTexture(memeTexture(this.currentLevel)).setOrigin(shape.originX, shape.originY).setDisplaySize(config.diameter, config.diameter);
     this.aim(this.aimX, true);
   }
 
   private drawGuide(): void {
     this.guide.clear().lineStyle(1, 0xbbb4cc, 0.24);
-    for (let y = BOARD.spawnY + levelConfig(this.currentLevel).diameter / 2 + 8; y < BOARD.bottom - 6; y += 12) {
+    for (let y = BOARD.spawnY + memeShape(this.currentLevel).bounds.maxY + 8; y < BOARD.bottom - 6; y += 12) {
       this.guide.lineBetween(this.aimX, y, this.aimX, y + 5);
     }
     this.guide.fillStyle(0xbbb4cc, 0.55).fillCircle(this.aimX, BOARD.bottom - 5, 3);
@@ -288,6 +299,7 @@ export class GameScene extends Phaser.Scene {
     this.world.off('collisionstart', this.onCollision, this);
     this.world.off('collisionactive', this.onCollision, this);
     this.aimController.destroy();
+    this.physicsDebug.destroy();
     this.game.events.off(Phaser.Core.Events.BLUR, this.onBlur, this);
     document.removeEventListener('visibilitychange', this.onVisibility);
     document.removeEventListener('keydown', this.onKeyDown);

@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { LEVELS, levelConfig } from '../config/gameConfig';
 import { drawMemeCutout } from './MemeArtwork';
+import { cacheMemeShape } from '../game/MemeShape';
 
 export const memeTexture = (level: number): string => `meme-circle-${level}`;
 
@@ -10,7 +11,7 @@ export function createMemeTextures(scene: Phaser.Scene): void {
     const size = 256;
     const canvas = document.createElement('canvas');
     canvas.width = canvas.height = size;
-    const ctx = canvas.getContext('2d');
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
     if (!ctx) throw new Error('Canvas 2D недоступен');
     const radius = size / 2 - 4;
     const center = size / 2;
@@ -19,6 +20,7 @@ export function createMemeTextures(scene: Phaser.Scene): void {
       const source = scene.textures.get(sourceKey).getSourceImage() as HTMLImageElement;
       drawMemeCutout(ctx, source, config.color, size);
       scene.textures.addCanvas(memeTexture(config.level), canvas);
+      cacheMemeShape(scene, config.level, canvas);
       scene.textures.remove(sourceKey);
       continue;
     }
@@ -46,6 +48,7 @@ export function createMemeTextures(scene: Phaser.Scene): void {
     ctx.arc(center, center, radius - 13, Math.PI * 1.15, Math.PI * 1.48);
     ctx.stroke();
     scene.textures.addCanvas(memeTexture(config.level), canvas);
+    cacheMemeShape(scene, config.level, canvas, true);
     if (scene.textures.exists(sourceKey)) scene.textures.remove(sourceKey);
   }
 }
