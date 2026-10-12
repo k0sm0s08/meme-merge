@@ -4,6 +4,13 @@ import { GAME, PHYSICS } from './config/gameConfig';
 import { BootScene } from './scenes/BootScene';
 import { MenuScene } from './scenes/MenuScene';
 import { GameScene } from './scenes/GameScene';
+import { audio } from './services/AudioManager';
+import { DECORATIONS } from './config/assets';
+
+for (const [side, source] of Object.entries(DECORATIONS)) {
+  const decoration = document.querySelector<HTMLImageElement>(`[data-decoration="${side}"]`);
+  if (decoration) decoration.src = source;
+}
 
 const game = new Phaser.Game({
   type: Phaser.AUTO,
@@ -27,6 +34,7 @@ const game = new Phaser.Game({
   },
   scene: [BootScene, MenuScene, GameScene],
 });
+game.events.once(Phaser.Core.Events.DESTROY, () => audio.destroy());
 
 const stage = document.getElementById('stage')!;
 const uiElement = document.getElementById('ui')!;

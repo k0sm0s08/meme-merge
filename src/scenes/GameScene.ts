@@ -1,11 +1,13 @@
 import Phaser from 'phaser';
 import { BOARD, GAME, RULES, levelConfig, randomLevel } from '../config/gameConfig';
 import { BallManager } from '../game/BallManager';
+import { AimController } from '../game/AimController';
 import { MergeManager, type MergeResult } from '../game/MergeManager';
 import { OverflowMonitor } from '../game/OverflowMonitor';
 import { ScoreManager } from '../game/ScoreManager';
 import { saves } from '../services/SaveService';
 import { platform } from '../services/PlatformService';
+import { audio } from '../services/AudioManager';
 import { Effects } from '../ui/Effects';
 import { ui } from '../ui/GameUI';
 import { memeTexture } from '../ui/TextureFactory';
@@ -26,7 +28,7 @@ export class GameScene extends Phaser.Scene {
   private dangerLine!: Phaser.GameObjects.Graphics;
   private accumulator = 0;
   private dropReadyAt = 0;
-  private draggingPointer: number | null = null;
+  aimController!: AimController;
   private aimX = GAME.width / 2;
   private targetAimX = GAME.width / 2;
   private lastComboAt = -Infinity;
@@ -40,7 +42,6 @@ export class GameScene extends Phaser.Scene {
   create(): void {
     this.gameTime = this.accumulator = this.dropReadyAt = 0;
     this.ended = this.paused = this.bombArmed = this.secondChanceUsed = false;
-    this.draggingPointer = null;
     this.lastComboAt = -Infinity;
     this.aimX = this.targetAimX = GAME.width / 2;
     this.initialBest = saves.snapshot.bestScore;
@@ -61,10 +62,12 @@ export class GameScene extends Phaser.Scene {
     this.updatePreview();
     this.matter.world.on('collisionstart', this.onCollision, this);
     this.matter.world.on('collisionactive', this.onCollision, this);
-    this.input.on('pointerdown', this.onPointerDown, this);
-    this.input.on('pointermove', this.onPointerMove, this);
-    this.input.on('pointerup', this.onPointerUp, this);
-    this.input.on('pointerupoutside', this.cancelDrag, this);
+    this.aimController = new AimController(this.game.canvas, {
+      canDrop: () => this.canDrop(),
+      contains: (point) => this.insideField(point),
+      aim: (x, snap) => this.aim(x, snap),
+      drop: ({ x, y }) => this.dropOrBomb(x, y),
+    });
     this.game.events.on(Phaser.Core.Events.BLUR, this.onBlur, this);
     document.addEventListener('visibilitychange', this.onVisibility);
     document.addEventListener('keydown', this.onKeyDown);
@@ -72,6 +75,7 @@ export class GameScene extends Phaser.Scene {
     ui.game({ pause: () => this.pauseGame(), resume: () => this.resumeGame(), restart: () => this.scene.restart(), menu: () => this.scene.start('Menu') });
     ui.updateNext(this.nextLevel);
     platform.gameplayStart();
+    audio.setSuspended('game', false);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.cleanup, this);
     if (document.hidden) this.onBlur();
   }
@@ -115,6 +119,7 @@ export class GameScene extends Phaser.Scene {
     this.accumulator = 0;
     this.cancelDrag();
     this.tweens.pauseAll();
+    audio.setSuspended('game', true);
     platform.gameplayStop();
   }
 
@@ -123,6 +128,7 @@ export class GameScene extends Phaser.Scene {
     this.paused = false;
     this.accumulator = 0;
     this.tweens.resumeAll();
+    audio.setSuspended('game', false);
     platform.gameplayStart();
   }
 
@@ -167,7 +173,7 @@ export class GameScene extends Phaser.Scene {
     this.effects.merge(result, combo);
   }
 
-  private insideField(pointer: Phaser.Input.Pointer): boolean {
+  private insideField(pointer: { x: number; y: number }): boolean {
     return pointer.x >= BOARD.left && pointer.x <= BOARD.right && pointer.y >= 216 && pointer.y <= BOARD.bottom;
   }
 
@@ -175,30 +181,7 @@ export class GameScene extends Phaser.Scene {
     return !this.paused && !this.ended && !ui.hasModal && this.gameTime >= this.dropReadyAt;
   }
 
-  private onPointerDown(pointer: Phaser.Input.Pointer): void {
-    if (!this.canDrop() || !this.insideField(pointer) || this.draggingPointer !== null) return;
-    if (!pointer.wasTouch && !pointer.leftButtonDown()) return;
-    this.aim(pointer.x, true);
-    if (pointer.wasTouch) this.draggingPointer = pointer.id;
-    else this.dropOrBomb(pointer.x, pointer.y);
-  }
-
-  private onPointerMove(pointer: Phaser.Input.Pointer): void {
-    if (!this.canDrop()) return;
-    if (pointer.wasTouch) {
-      if (this.draggingPointer === pointer.id) this.aim(pointer.x);
-    } else if (this.insideField(pointer)) this.aim(pointer.x);
-  }
-
-  private onPointerUp(pointer: Phaser.Input.Pointer): void {
-    if (this.draggingPointer !== pointer.id) return;
-    this.draggingPointer = null;
-    if (pointer.event.type === 'touchcancel' || !this.canDrop() || !this.insideField(pointer)) return;
-    this.aim(pointer.x, true);
-    this.dropOrBomb(pointer.x, pointer.y);
-  }
-
-  private cancelDrag(): void { this.draggingPointer = null; }
+  private cancelDrag(): void { this.aimController?.cancel(); }
 
   private dropOrBomb(x: number, y: number): void {
     if (!this.canDrop()) return;
@@ -233,15 +216,15 @@ export class GameScene extends Phaser.Scene {
   }
 
   private drawGuide(): void {
-    this.guide.clear().lineStyle(1, 0xb7a1ff, 0.24);
+    this.guide.clear().lineStyle(1, 0xbbb4cc, 0.24);
     for (let y = BOARD.spawnY + levelConfig(this.currentLevel).diameter / 2 + 8; y < BOARD.bottom - 6; y += 12) {
       this.guide.lineBetween(this.aimX, y, this.aimX, y + 5);
     }
-    this.guide.fillStyle(0xb7a1ff, 0.55).fillCircle(this.aimX, BOARD.bottom - 5, 3);
+    this.guide.fillStyle(0xbbb4cc, 0.55).fillCircle(this.aimX, BOARD.bottom - 5, 3);
   }
 
   private drawDanger(warning: boolean): void {
-    this.dangerLine.clear().lineStyle(1.5, warning ? 0xff92aa : 0x76728f, warning ? 0.9 : 0.5);
+    this.dangerLine.clear().lineStyle(1.5, warning ? 0xd6a4ac : 0x76728f, warning ? 0.9 : 0.5);
     for (let x = BOARD.left + 5; x < BOARD.right - 5; x += 12) this.dangerLine.lineBetween(x, BOARD.dangerY, Math.min(x + 5, BOARD.right - 5), BOARD.dangerY);
   }
 
@@ -259,25 +242,26 @@ export class GameScene extends Phaser.Scene {
   private drawBoard(): void {
     const graphic = this.add.graphics().setDepth(0);
     const width = BOARD.right - BOARD.left;
-    graphic.fillStyle(0x090b14, 0.4).fillRoundedRect(22, BOARD.top + 12, width + 12, BOARD.bottom - BOARD.top + 4, 20);
-    graphic.fillStyle(0x1b1e33).fillRoundedRect(BOARD.left, BOARD.top, width, BOARD.bottom - BOARD.top, { tl: 12, tr: 12, bl: 2, br: 2 });
-    graphic.fillStyle(0x24253b, 0.65).fillRect(BOARD.left, BOARD.top, width, 38);
-    graphic.lineStyle(1, 0x3d3c57, 0.8).strokeRoundedRect(BOARD.left - 0.5, BOARD.top, width + 1, BOARD.bottom - BOARD.top + 1, 12);
+    graphic.fillStyle(0x20262f, 0.4).fillRoundedRect(22, BOARD.top + 12, width + 12, BOARD.bottom - BOARD.top + 4, 20);
+    graphic.fillStyle(0x303942).fillRoundedRect(BOARD.left, BOARD.top, width, BOARD.bottom - BOARD.top, { tl: 12, tr: 12, bl: 2, br: 2 });
+    graphic.fillStyle(0x3d4750, 0.65).fillRect(BOARD.left, BOARD.top, width, 38);
+    graphic.lineStyle(1, 0x65707c, 0.8).strokeRoundedRect(BOARD.left - 0.5, BOARD.top, width + 1, BOARD.bottom - BOARD.top + 1, 12);
     // Visible inner wall faces and floor align precisely with collision boundaries.
-    graphic.fillStyle(0x72708b, 0.55).fillRect(BOARD.left - 3, BOARD.top + 10, 3, BOARD.bottom - BOARD.top - 10);
+    graphic.fillStyle(0x969caa, 0.55).fillRect(BOARD.left - 3, BOARD.top + 10, 3, BOARD.bottom - BOARD.top - 10);
     graphic.fillRect(BOARD.right, BOARD.top + 10, 3, BOARD.bottom - BOARD.top - 10);
-    graphic.fillStyle(0x8b819e, 0.65).fillRoundedRect(BOARD.left - 3, BOARD.bottom, width + 6, 5, 2);
-    graphic.fillStyle(0x44445f, 0.3);
+    graphic.fillStyle(0xa5a0ae, 0.65).fillRoundedRect(BOARD.left - 3, BOARD.bottom, width + 6, 5, 2);
+    graphic.fillStyle(0x88919b, 0.3);
     for (let y = BOARD.top + 61; y < BOARD.bottom - 10; y += 24) {
       for (let x = BOARD.left + 13; x < BOARD.right - 8; x += 24) graphic.fillCircle(x, y, 0.8);
     }
-    graphic.lineStyle(2, 0xb7a1ff, 0.4).lineBetween(BOARD.left - 2, BOARD.top + 6, BOARD.left - 2, BOARD.top + 36);
+    graphic.lineStyle(2, 0xbbb4cc, 0.4).lineBetween(BOARD.left - 2, BOARD.top + 6, BOARD.left - 2, BOARD.top + 36);
     graphic.lineBetween(BOARD.right + 2, BOARD.top + 6, BOARD.right + 2, BOARD.top + 36);
   }
 
   private gameOver(): void {
     if (this.ended) return;
     this.ended = true;
+    audio.setSuspended('game', true);
     this.cancelDrag();
     this.preview.setVisible(false);
     this.guide.setVisible(false);
@@ -303,10 +287,7 @@ export class GameScene extends Phaser.Scene {
   private cleanup(): void {
     this.world.off('collisionstart', this.onCollision, this);
     this.world.off('collisionactive', this.onCollision, this);
-    this.input.off('pointerdown', this.onPointerDown, this);
-    this.input.off('pointermove', this.onPointerMove, this);
-    this.input.off('pointerup', this.onPointerUp, this);
-    this.input.off('pointerupoutside', this.cancelDrag, this);
+    this.aimController.destroy();
     this.game.events.off(Phaser.Core.Events.BLUR, this.onBlur, this);
     document.removeEventListener('visibilitychange', this.onVisibility);
     document.removeEventListener('keydown', this.onKeyDown);

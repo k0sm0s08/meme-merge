@@ -1,3 +1,5 @@
+import { audio } from './AudioManager';
+
 /** Future SDK boundary. Rewarded actions only run after a confirmed reward. */
 export interface PlatformService {
   ready(): void;
@@ -12,7 +14,7 @@ export const platform: PlatformService = {
   ready() {},
   gameplayStart() {},
   gameplayStop() {},
-  async rewarded() { return false; },
-  async interstitial() {},
+  async rewarded() { return audio.suspendForAd(async () => false); },
+  async interstitial() { await audio.suspendForAd(async () => {}); },
   async submitScore() {},
 };
