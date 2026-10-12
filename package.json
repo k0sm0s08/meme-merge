@@ -1,0 +1,28 @@
+{
+  "name": "meme-merge",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0 --base /",
+    "typecheck": "tsc --noEmit",
+    "build": "npm run typecheck && vite build",
+    "check:build": "node scripts/check-build.mjs",
+    "preview": "vite preview --host 0.0.0.0",
+    "test": "node tests/browser.mjs",
+    "test:production": "node tests/production.mjs",
+    "prepare:memes": "node scripts/prepare-memes.mjs"
+  },
+  "dependencies": {
+    "phaser": "3.90.0"
+  },
+  "devDependencies": {
+    "@types/node": "24.10.1",
+    "playwright-core": "1.64.0",
+    "typescript": "5.9.3",
+    "vite": "8.3.4"
+  },
+  "engines": {
+    "node": ">=22.12.0"
+  }
+}

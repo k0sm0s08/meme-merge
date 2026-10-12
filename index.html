@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#111322" />
+    <meta name="description" content="Мемный Мерж — объединяй одинаковые мемы, собирай комбо и побей свой рекорд." />
+    <link rel="icon" type="image/svg+xml" href="./assets/ui/favicon.svg" />
+    <title>Мемный Мерж</title>
+  </head>
+  <body>
+    <main id="app" aria-label="Мемный Мерж">
+      <div class="desktop-note" aria-hidden="true"><span class="note-mark">ММ<span>✦</span></span><p>Маленький мем.<br />Большие эмоции.</p><span class="note-caption">СОБИРАЙ · ОБЪЕДИНЯЙ · ПОВТОРЯЙ</span></div>
+      <div id="stage"><div id="game"></div><div id="ui"></div></div>
+      <p class="desktop-footer">Одинаковые мемы — вместе. Рекорды — выше.</p>
+      <div id="loading" role="status"><span class="loading-mark">ММ<span>✦</span></span><p>Собираем мемы…</p><div class="loading-track"><span></span></div></div>
+    </main>
+    <script type="module" src="./src/main.ts"></script>
+  </body>
+</html>
