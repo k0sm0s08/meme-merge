@@ -6,6 +6,12 @@ import { MenuScene } from './scenes/MenuScene';
 import { GameScene } from './scenes/GameScene';
 import { audio } from './services/AudioManager';
 import { DECORATIONS } from './config/assets';
+import { platform } from './services/PlatformService';
+
+void platform.initialize();
+document.addEventListener('contextmenu', (event) => {
+  if ((event.target as Element | null)?.closest('#stage')) event.preventDefault();
+});
 
 for (const [side, source] of Object.entries(DECORATIONS)) {
   const decoration = document.querySelector<HTMLImageElement>(`[data-decoration="${side}"]`);

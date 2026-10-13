@@ -73,8 +73,9 @@ try {
       };
       for (const shape of state.shapes) {
         const image = new Image(); image.src = window.__MEME_TEST__.textureData(shape.level); await image.decode();
-        const canvas = document.createElement('canvas'); canvas.width = canvas.height = image.width;
-        const ctx = canvas.getContext('2d', { willReadFrequently: true }); ctx.drawImage(image, 0, 0);
+        // Compare full-resolution artwork with the unchanged 256px physics sampling grid.
+        const canvas = document.createElement('canvas'); canvas.width = canvas.height = 256;
+        const ctx = canvas.getContext('2d', { willReadFrequently: true }); ctx.drawImage(image, 0, 0, 256, 256);
         const alpha = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
         const mask = document.createElement('canvas'); mask.width = mask.height = canvas.width;
         const physics = mask.getContext('2d', { willReadFrequently: true });

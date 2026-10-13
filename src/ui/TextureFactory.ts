@@ -18,9 +18,13 @@ export function createMemeTextures(scene: Phaser.Scene): void {
     const sourceKey = `source-${config.level}`;
     if (scene.textures.exists(sourceKey)) {
       const source = scene.textures.get(sourceKey).getSourceImage() as HTMLImageElement;
+      // Keep the proven 256px physics mask; display the full 512px photo independently.
       drawMemeCutout(ctx, source, config.color, size);
-      scene.textures.addCanvas(memeTexture(config.level), canvas);
       cacheMemeShape(scene, config.level, canvas);
+      const artwork = document.createElement('canvas');
+      artwork.width = artwork.height = 512;
+      drawMemeCutout(artwork.getContext('2d')!, source, config.color, 512);
+      scene.textures.addCanvas(memeTexture(config.level), artwork);
       scene.textures.remove(sourceKey);
       continue;
     }

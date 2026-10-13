@@ -11,7 +11,10 @@
     "preview": "vite preview --host 0.0.0.0",
     "test": "node tests/browser.mjs && node tests/physics.mjs",
     "test:production": "node tests/production.mjs",
-    "prepare:memes": "node scripts/prepare-memes.mjs"
+    "prepare:memes": "node scripts/prepare-memes.mjs",
+    "build:yandex": "npm run typecheck && vite build --mode yandex",
+    "check:yandex": "node scripts/check-build.mjs dist-yandex ./ && node scripts/check-yandex.mjs",
+    "test:yandex": "node tests/yandex.mjs"
   },
   "dependencies": {
     "phaser": "3.90.0"

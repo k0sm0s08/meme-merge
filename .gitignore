@@ -1,5 +1,7 @@
 node_modules/
 dist/
+dist-yandex/
+upload/
 .cache/
 test-results/
 *.local

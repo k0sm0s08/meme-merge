@@ -3,8 +3,8 @@ import { readFile, stat } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { resolve } from 'node:path';
 
-const root = resolve('dist');
-const base = process.env.VITE_BASE_PATH ?? '/meme-merge/';
+const root = resolve(process.argv[2] ?? 'dist');
+const base = process.argv[3] ?? process.env.VITE_BASE_PATH ?? '/meme-merge/';
 const prefix = base.startsWith('/') ? base : '/release/meme-merge/';
 const html = await readFile(resolve(root, 'index.html'), 'utf8');
 const entry = html.match(/<script[^>]*src="([^"]+)"/);
@@ -31,4 +31,4 @@ for (const relative of assets) {
   assert.equal(hash(built), hash(source), `Ресурс повреждён или не соответствует исходнику: ${relative}`);
 }
 assert.ok(html.includes('Мелстрой мерж'), 'Название игры должно быть обновлено');
-console.log(`✓ dist/index.html, base ${base}, JS/CSS/иконки, 10 мемов, 2 фотографии и 3 MP3 проверены.`);
+console.log(`✓ ${root}/index.html, base ${base}, JS/CSS/иконки, 10 мемов, 2 фотографии и 3 MP3 проверены.`);

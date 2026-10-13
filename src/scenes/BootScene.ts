@@ -1,7 +1,6 @@
 import Phaser from 'phaser';
 import { createMemeTextures } from '../ui/TextureFactory';
 import { ui } from '../ui/GameUI';
-import { platform } from '../services/PlatformService';
 
 export class BootScene extends Phaser.Scene {
   constructor() { super('Boot'); }
@@ -23,7 +22,6 @@ export class BootScene extends Phaser.Scene {
     createMemeTextures(this);
     ui.cacheArtwork(this);
     document.getElementById('loading')?.remove();
-    platform.ready();
     this.scene.start('Menu');
   }
 }

@@ -5,6 +5,8 @@ body { -webkit-tap-highlight-color: transparent; }
 button { font: inherit; color: inherit; border: 0; cursor: pointer; touch-action: manipulation; }
 button:focus-visible { outline: 2px solid var(--lime); outline-offset: 4px; }
 button:active { transform: scale(.97); }
+button:disabled { cursor: wait; opacity: .55; transform: none; }
+.reward-status { text-align: center; font-size: 12px; line-height: 1.6; color: #bfb2d1; margin-top: 14px; }
 button, img { -webkit-user-select: none; user-select: none; }
 svg { width: 22px; height: 22px; flex-shrink: 0; }
 img { object-fit: contain; }

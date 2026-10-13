@@ -2,7 +2,7 @@ import { AUDIO_ASSETS } from '../config/assets';
 
 export interface AudioSettings { music: boolean; effects: boolean }
 type Effect = 'effect01' | 'effect03';
-type Suspension = 'game' | 'hidden' | 'blur' | 'ad';
+type Suspension = 'game' | 'hidden' | 'blur' | 'ad' | 'platform';
 const STORAGE_KEY = 'meme-merge.audio.v1';
 const MUSIC_VOLUME = 0.22;
 
