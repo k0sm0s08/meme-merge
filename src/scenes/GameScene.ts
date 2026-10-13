@@ -38,11 +38,16 @@ export class GameScene extends Phaser.Scene {
   private initialBest = 0;
   private bombArmed = false;
   private secondChanceUsed = false;
+  private secondChancePending = false;
+  private session = 0;
+  private unsubscribePlatform?: () => void;
   private world!: Phaser.Physics.Matter.World;
 
   constructor() { super('Game'); }
 
   create(): void {
+    this.session++;
+    this.secondChancePending = false;
     this.gameTime = this.accumulator = this.dropReadyAt = 0;
     this.ended = this.paused = this.bombArmed = this.secondChanceUsed = false;
     this.lastComboAt = -Infinity;
@@ -75,13 +80,14 @@ export class GameScene extends Phaser.Scene {
     this.game.events.on(Phaser.Core.Events.BLUR, this.onBlur, this);
     document.addEventListener('visibilitychange', this.onVisibility);
     document.addEventListener('keydown', this.onKeyDown);
+    this.unsubscribePlatform = platform.onPause(() => this.onBlur());
     saves.beginGame();
     ui.game({ pause: () => this.pauseGame(), resume: () => this.resumeGame(), restart: () => this.scene.restart(), menu: () => this.scene.start('Menu') });
     ui.updateNext(this.nextLevel);
     platform.gameplayStart();
     audio.setSuspended('game', false);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.cleanup, this);
-    if (document.hidden) this.onBlur();
+    if (document.hidden || platform.pausedByPlatform) this.onBlur();
   }
 
   update(_time: number, delta: number): void {
@@ -134,7 +140,10 @@ export class GameScene extends Phaser.Scene {
   }
 
   resumeGame(): void {
-    if (this.ended || document.hidden) return;
+    if (this.ended || document.hidden || platform.pausedByPlatform) {
+      if (!this.ended) { this.paused = true; ui.pause(); }
+      return;
+    }
     this.paused = false;
     this.accumulator = 0;
     this.tweens.resumeAll();
@@ -156,19 +165,28 @@ export class GameScene extends Phaser.Scene {
 
   /** Removes upper bodies only after a genuine SDK reward callback. */
   async requestSecondChance(): Promise<boolean> {
-    if (!this.ended || this.secondChanceUsed) return false;
-    const rewarded = await platform.rewarded('second-chance');
-    if (!rewarded || !this.sys.isActive() || !this.ended) return false;
-    this.secondChanceUsed = true;
-    for (const ball of [...this.balls.balls.values()]) {
-      if (ball.body.position.y - ball.radius < BOARD.dangerY + 100) this.balls.remove(ball);
-      else ball.overflowMs = 0;
-    }
-    this.ended = false;
-    ui.closeModal();
-    this.resumeGame();
-    this.updatePreview();
-    return true;
+    if (!this.ended || this.secondChanceUsed || this.secondChancePending) return false;
+    const session = this.session;
+    this.secondChancePending = true;
+    try {
+      const rewarded = await platform.rewarded('second-chance');
+      if (!rewarded || session !== this.session || !this.sys.isActive() || !this.ended) return false;
+      this.secondChanceUsed = true;
+      for (const ball of [...this.balls.balls.values()]) {
+        if (ball.body.bounds.min.y < BOARD.dangerY + 100) this.balls.remove(ball);
+        else ball.overflowMs = 0;
+      }
+      this.ended = false;
+      this.accumulator = 0;
+      ui.warning(0);
+      this.drawDanger(false);
+      ui.closeModal();
+      this.updatePreview();
+      // Returning from an ad in a hidden/unfocused tab must keep the game paused.
+      if (document.hidden || !document.hasFocus()) { this.paused = true; ui.pause(); }
+      else this.resumeGame();
+      return true;
+    } finally { if (session === this.session) this.secondChancePending = false; }
   }
 
   private onCollision(event: MatterJS.IEventCollision<MatterJS.Engine>): void {
@@ -279,7 +297,8 @@ export class GameScene extends Phaser.Scene {
     this.tweens.pauseAll();
     saves.record(this.score.score, this.score.maxLevel);
     platform.gameplayStop();
-    ui.gameOver(this.score.score, this.score.maxLevel, this.score.score > this.initialBest);
+    ui.gameOver(this.score.score, this.score.maxLevel, this.score.score > this.initialBest,
+      platform.supportsRewards && !this.secondChanceUsed ? () => this.requestSecondChance() : undefined);
   }
 
   private onBlur(): void {
@@ -296,6 +315,8 @@ export class GameScene extends Phaser.Scene {
   };
 
   private cleanup(): void {
+    this.session++;
+    this.unsubscribePlatform?.();
     this.world.off('collisionstart', this.onCollision, this);
     this.world.off('collisionactive', this.onCollision, this);
     this.aimController.destroy();

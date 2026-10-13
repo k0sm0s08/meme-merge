@@ -107,7 +107,7 @@ export function prepareMemeSource(source: HTMLImageElement | HTMLCanvasElement):
 /** A character cutout, not a photo pasted over an opaque colored disk. */
 export function drawMemeCutout(ctx: CanvasRenderingContext2D, source: HTMLImageElement | HTMLCanvasElement, _color: string, size: number): void {
   const prepared = prepareMemeSource(source).canvas;
-  const padding = 2;
+  const padding = size / 128;
   const scale = (size - padding * 2) / Math.max(prepared.width, prepared.height);
   const width = prepared.width * scale;
   const height = prepared.height * scale;

@@ -7,15 +7,16 @@ const availableMemes = LEVELS.map(({ level }) => level).filter((level) =>
   existsSync(fileURLToPath(new URL(`./public/assets/memes/meme-${String(level).padStart(2, '0')}.png`, import.meta.url))),
 );
 
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   // Project Pages uses /meme-merge/; root hosts can set VITE_BASE_PATH=/.
-  base: process.env.VITE_BASE_PATH ?? '/meme-merge/',
-  define: { __MEME_ASSETS__: JSON.stringify(availableMemes) },
+  base: mode === 'yandex' ? './' : process.env.VITE_BASE_PATH ?? '/meme-merge/',
+  define: { __MEME_ASSETS__: JSON.stringify(availableMemes), __YANDEX_GAMES__: mode === 'yandex' },
   build: {
+    outDir: mode === 'yandex' ? 'dist-yandex' : 'dist',
     target: 'es2022',
     rollupOptions: {
       output: { manualChunks: (id) => id.includes('node_modules/phaser') ? 'phaser' : undefined },
     },
     chunkSizeWarningLimit: 1600,
   },
-});
+}));

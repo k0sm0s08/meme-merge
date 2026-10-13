@@ -22,7 +22,7 @@ export class GameUI {
   private onDialogKey = (event: KeyboardEvent): void => {
     if (!this.modal) return;
     if (event.key === 'Tab') {
-      const buttons = [...this.modal.querySelectorAll<HTMLButtonElement>('button')];
+      const buttons = [...this.modal.querySelectorAll<HTMLButtonElement>('button:not(:disabled)')];
       const first = buttons[0];
       const last = buttons.at(-1);
       if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
@@ -134,11 +134,36 @@ export class GameUI {
     ]);
   }
 
-  gameOver(score: number, maxLevel: number, isRecord: boolean): void {
+  gameOver(score: number, maxLevel: number, isRecord: boolean, secondChance?: () => Promise<boolean>): void {
     this.dialog('Игра окончена', `<p class="result-game-name">Мелстрой мерж</p><div class="result-art">${this.image(maxLevel)}<span>УРОВЕНЬ ${maxLevel}</span></div><p class="result-caption">${isRecord ? 'Твой новый рекорд. Красиво!' : 'Хорошая попытка. Ещё одну?'}</p><div class="result-score">${format(score)}<span>ОЧКОВ</span></div><div class="result-best">${icon('crown')} Рекорд: ${format(saves.snapshot.bestScore)}</div>`, [
-      ['Играть снова', 'primary', () => { this.closeModal(); this.actions?.restart(); }],
+      ...(secondChance ? [['Второй шанс · за рекламу', 'primary', () => { void this.watchSecondChance(secondChance); }] as [string, string, ButtonAction]] : []),
+      ['Играть снова', secondChance ? 'secondary' : 'primary', () => { this.closeModal(); this.actions?.restart(); }],
       ['В меню', 'secondary', () => { this.closeModal(); this.actions?.menu(); }],
     ]);
+  }
+
+  private async watchSecondChance(action: () => Promise<boolean>): Promise<void> {
+    const modal = this.modal;
+    if (!modal || modal.dataset.rewardPending) return;
+    modal.dataset.rewardPending = 'true';
+    const buttons = [...modal.querySelectorAll<HTMLButtonElement>('button')];
+    buttons.forEach((button) => { button.disabled = true; });
+    let status = modal.querySelector<HTMLElement>('[data-reward-status]');
+    if (!status) {
+      status = document.createElement('p');
+      status.className = 'reward-status';
+      status.dataset.rewardStatus = '';
+      status.setAttribute('role', 'status');
+      modal.querySelector('.dialog-actions')!.before(status);
+    }
+    status.textContent = 'Открываем рекламу… После просмотра уберём верхние мемы.';
+    let rewarded = false;
+    try { rewarded = await action(); } catch { /* Keep the result dialog usable on SDK errors. */ }
+    if (this.modal !== modal) return;
+    delete modal.dataset.rewardPending;
+    buttons.forEach((button) => { button.disabled = false; });
+    if (!rewarded) status.textContent = 'Реклама не завершена или недоступна. Можно попробовать ещё раз.';
+    buttons[0]?.focus({ preventScroll: true });
   }
 
   collection(close: ButtonAction): void {
