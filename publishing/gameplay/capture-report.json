@@ -1,0 +1,46 @@
+{
+  "sourceCommit": "8a0eef1",
+  "capturedAt": "2026-10-13T19:45:12.578Z",
+  "audio": false,
+  "gameplay": "Real production input and physics; no fixtures",
+  "recordings": [
+    {
+      "format": {
+        "duration": "66.760000",
+        "size": "2834142"
+      },
+      "score": 1012,
+      "errors": [],
+      "programs": [],
+      "stream_groups": [],
+      "streams": [
+        {
+          "codec_name": "h264",
+          "width": 720,
+          "height": 1280,
+          "r_frame_rate": "25/1"
+        }
+      ],
+      "orientation": "vertical"
+    },
+    {
+      "format": {
+        "duration": "52.880000",
+        "size": "2084025"
+      },
+      "score": 1020,
+      "errors": [],
+      "programs": [],
+      "stream_groups": [],
+      "streams": [
+        {
+          "codec_name": "h264",
+          "width": 1280,
+          "height": 720,
+          "r_frame_rate": "25/1"
+        }
+      ],
+      "orientation": "horizontal"
+    }
+  ]
+}
